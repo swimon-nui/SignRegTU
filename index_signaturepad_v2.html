@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Signature PRO Hybrid V2</title>
+
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@5.0.10/dist/signature_pad.umd.min.js"></script>
+
+<style>
+:root{
+    --w:1134px;
+    --h:284px;
+}
+
+body{
+    margin:0;
+    padding:20px;
+    font-family:sans-serif;
+    background:#f5f5f5;
+    text-align:center;
+}
+
+input{
+    width:90%;
+    max-width:700px;
+    padding:14px;
+    font-size:20px;
+    text-align:center;
+    border-radius:10px;
+    border:2px solid #999;
+    margin-bottom:20px;
+}
+
+.stack{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+    align-items:center;
+}
+
+.card{
+    background:#fff;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 1px 6px rgba(0,0,0,.1);
+}
+
+canvas{
+    border:1px solid #ccc;
+    background:#fff;
+    width:var(--w);
+    height:var(--h);
+    touch-action:none;
+}
+
+button{
+    margin:6px;
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.save{background:#198754;color:#fff;}
+.clear{background:#6c757d;color:#fff;}
+.undo{background:#0d6efd;color:#fff;}
+
+</style>
+</head>
+
+<body>
+
+<h2>Signature PRO Hybrid V2</h2>
+
+<input id="filename" placeholder="ตั้งชื่อไฟล์">
+
+<div class="stack" id="stack"></div>
+
+<script>
+const W = 1134;
+const H = 284;
+const DPI = 600;
+
+const pads = [];
+const stack = document.getElementById("stack");
+
+function setupCanvas(canvas){
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+
+    canvas.width = W * ratio;
+    canvas.height = H * ratio;
+
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(ratio, ratio);
+}
+
+function createPad(index,label,suffix){
+
+    const div = document.createElement("div");
+    div.className="card";
+
+    div.innerHTML = `
+        <div><b>${label}</b></div>
+        <canvas id="c${index}"></canvas>
+        <div>
+            <button class="clear" onclick="clearPad(${index})">Clear</button>
+            <button class="undo" onclick="undoPad(${index})">Undo</button>
+            <button class="save" onclick="save(${index})">Save</button>
+        </div>
+    `;
+
+    stack.appendChild(div);
+
+    const canvas = document.getElementById("c"+index);
+    setupCanvas(canvas);
+
+    const pad = new SignaturePad(canvas,{
+        minWidth:1.2,
+        maxWidth:4.5,
+        penColor:"#000",
+        backgroundColor:"rgba(255,255,255,0)"
+    });
+
+    pads[index] = {pad, canvas, suffix};
+}
+
+function clearPad(i){
+    pads[i].pad.clear();
+}
+
+function undoPad(i){
+    const p = pads[i].pad;
+    const data = p.toData();
+    if(data.length > 0){
+        data.pop();
+        p.fromData(data);
+    }
+}
+
+function getBounds(canvas){
+    const ctx = canvas.getContext("2d");
+    const img = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+
+    let minX=1e9,minY=1e9,maxX=0,maxY=0;
+
+    for(let y=0;y<canvas.height;y++){
+        for(let x=0;x<canvas.width;x++){
+            const a = img[(y*canvas.width+x)*4+3];
+            if(a>0){
+                if(x<minX)minX=x;
+                if(y<minY)minY=y;
+                if(x>maxX)maxX=x;
+                if(y>maxY)maxY=y;
+            }
+        }
+    }
+
+    if(maxX===0) return null;
+
+    return {x:minX,y:minY,w:maxX-minX,h:maxY-minY};
+}
+
+function makeCentered(canvas){
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+
+    const ctx = out.getContext("2d");
+    const b = getBounds(canvas);
+
+    if(!b) return out;
+
+    const pad = 10;
+
+    const sx = Math.max(0,b.x-pad);
+    const sy = Math.max(0,b.y-pad);
+    const sw = Math.min(canvas.width, b.w+pad*2);
+    const sh = Math.min(canvas.height, b.h+pad*2);
+
+    const dx = (W - sw)/2;
+    const dy = (H - sh)/2;
+
+    ctx.drawImage(canvas,sx,sy,sw,sh,dx,dy,sw,sh);
+
+    return out;
+}
+
+// --- DPI metadata ---
+function setDPI(blob,dpi){
+    return blob; // simplified (browser ignores true DPI visually)
+}
+
+function save(i){
+
+    const pad = pads[i].pad;
+    if(pad.isEmpty()){
+        alert("กรุณาเซ็นก่อน");
+        return;
+    }
+
+    const canvas = pads[i].canvas;
+
+    const centered = makeCentered(canvas);
+
+    centered.toBlob(blob=>{
+
+        const name = (document.getElementById("filename").value || "signature")
+            .replace(/[\\/:*?"<>|]/g,"");
+
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name + "_" + pads[i].suffix + ".png";
+
+        a.click();
+
+        URL.revokeObjectURL(url);
+
+    });
+
+}
+
+// create 2 pads
+createPad(0,"ลายเซ็นภาษาไทย","TH");
+createPad(1,"Signature English","EN");
+
+</script>
+
+</body>
+</html>

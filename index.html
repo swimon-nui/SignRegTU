@@ -67,7 +67,6 @@ button{
 
 .save{background:#198754;color:#fff;}
 .clear{background:#6c757d;color:#fff;}
-.undo{background:#0d6efd;color:#fff;}
 
 </style>
 </head>
@@ -112,7 +111,6 @@ function createPad(index,label,suffix){
         <canvas id="c${index}"></canvas>
         <div>
             <button class="clear" onclick="clearPad(${index})">Clear</button>
-            <button class="undo" onclick="undoPad(${index})">Undo</button>
             <button class="save" onclick="save(${index})">Save</button>
         </div>
     `;
@@ -134,15 +132,6 @@ function createPad(index,label,suffix){
 
 function clearPad(i){
     pads[i].pad.clear();
-}
-
-function undoPad(i){
-    const p = pads[i].pad;
-    const data = p.toData();
-    if(data.length > 0){
-        data.pop();
-        p.fromData(data);
-    }
 }
 
 function getBounds(canvas){

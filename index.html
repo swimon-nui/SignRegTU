@@ -42,18 +42,20 @@ input{
 }
 
 .card{
-    background:#fff;
-    padding:15px;
-    border-radius:10px;
-    box-shadow:0 1px 6px rgba(0,0,0,.1);
+    width:min(100%,1150px);
 }
-
+    
 canvas{
+    width:100%;
+    max-width:px;
+    aspect-ratio: / 284;
+    height:auto;
+
     border:1px solid #ccc;
     background:#fff;
-    width:var(--w);
-    height:var(--h);
+
     touch-action:none;
+    display:block;
 }
 
 button{
@@ -88,17 +90,19 @@ const pads = [];
 const stack = document.getElementById("stack");
 
 function setupCanvas(canvas){
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
 
-    canvas.width = W * ratio;
-    canvas.height = H * ratio;
+    const ratio = Math.max(window.devicePixelRatio || 1,1);
 
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
+    const rect = canvas.getBoundingClientRect();
+
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
 
     const ctx = canvas.getContext("2d");
+
     ctx.setTransform(1,0,0,1,0,0);
-    ctx.scale(ratio, ratio);
+    ctx.scale(ratio,ratio);
+
 }
 
 function createPad(index,label,suffix){
@@ -185,7 +189,13 @@ function getStrokeBounds(data){
 
 }    
 
-function createExportCanvas(signaturePad){
+function createExportCanvas(signaturePad) {
+
+    const canvas = signaturePad.canvas;
+    const rect = canvas.getBoundingClientRect();
+
+    const scaleX = W / rect.width;
+    const scaleY = H / rect.height;
 
     const data = signaturePad.toData();
 
@@ -193,106 +203,116 @@ function createExportCanvas(signaturePad){
     out.width = W;
     out.height = H;
 
-    if(data.length===0){
+    if (data.length === 0) {
         return out;
     }
 
-    // ---------------------------------
+    //----------------------------------------------------
     // หา Bounding Box
-    // ---------------------------------
+    //----------------------------------------------------
 
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    data.forEach(stroke=>{
+    data.forEach(stroke => {
 
-        stroke.points.forEach(p=>{
+        stroke.points.forEach(p => {
 
-            minX = Math.min(minX,p.x);
-            minY = Math.min(minY,p.y);
+            const x = p.x * scaleX;
+            const y = p.y * scaleY;
 
-            maxX = Math.max(maxX,p.x);
-            maxY = Math.max(maxY,p.y);
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
 
         });
 
     });
 
-    const signWidth = maxX-minX;
-    const signHeight = maxY-minY;
+    const signWidth = maxX - minX;
+    const signHeight = maxY - minY;
 
-    // ---------------------------------
-    // กำหนดระยะขอบ
-    // ---------------------------------
+    //----------------------------------------------------
+    // Margin
+    //----------------------------------------------------
 
     const margin = 20;
 
-    const usableWidth = W - margin*2;
-    const usableHeight = H - margin*2;
+    const maxWidth = W - margin * 2;
+    const maxHeight = H - margin * 2;
 
-    // ---------------------------------
-    // Scale อัตโนมัติ
-    // ---------------------------------
+    //----------------------------------------------------
+    // Scale
+    //----------------------------------------------------
 
-    const scale = Math.min(
+    let scale = Math.min(
 
-        usableWidth/signWidth,
+        maxWidth / signWidth,
 
-        usableHeight/signHeight,
-
-        1
+        maxHeight / signHeight
 
     );
 
-    // ---------------------------------
-    // จัดกึ่งกลาง
-    // ---------------------------------
+    // ไม่ขยายลายเซ็นเล็ก
+    scale = Math.min(scale,1);
+
+    //----------------------------------------------------
+    // Center
+    //----------------------------------------------------
 
     const offsetX =
-        (W-signWidth*scale)/2;
+        (W - signWidth * scale) / 2;
 
     const offsetY =
-        (H-signHeight*scale)/2;
+        (H - signHeight * scale) / 2;
 
-    // ---------------------------------
+    //----------------------------------------------------
     // สร้างข้อมูลใหม่
-    // ---------------------------------
+    //----------------------------------------------------
 
-    const newData = data.map(stroke=>({
+    const newData = data.map(stroke => ({
 
         ...stroke,
 
-        points: stroke.points.map(p=>({
+        points: stroke.points.map(p => ({
 
             ...p,
 
             x:
-                (p.x-minX)*scale
-                +offsetX,
+                ((p.x * scaleX) - minX) * scale
+                + offsetX,
 
             y:
-                (p.y-minY)*scale
-                +offsetY
+                ((p.y * scaleY) - minY) * scale
+                + offsetY
 
         }))
 
     }));
 
-    // ---------------------------------
+    //----------------------------------------------------
     // วาดใหม่
-    // ---------------------------------
+    //----------------------------------------------------
 
-    const exportPad = new SignaturePad(out,{
+    const exportPad = new SignaturePad(out, {
 
-        penColor:"#000",
+        penColor: signaturePad.penColor,
 
-        backgroundColor:"rgba(255,255,255,0)",
+        backgroundColor: "rgba(255,255,255,0)",
 
-        minWidth:signaturePad.minWidth*scale,
+        minWidth: signaturePad.minWidth,
 
-        maxWidth:signaturePad.maxWidth*scale
+        maxWidth: signaturePad.maxWidth,
+
+        velocityFilterWeight: signaturePad.velocityFilterWeight,
+
+        throttle: 0,
+
+        minDistance: 0
 
     });
 
@@ -314,22 +334,23 @@ const exportCanvas = createExportCanvas(
     pads[i].pad
 );
 
-    exportCanvas.toBlob(blob=>{
+exportCanvas.toBlob(async (blob)=>{
 
-        const name = (document.getElementById("filename").value || "signature")
-            .replace(/[\\/:*?"<>|]/g,"");
+    const png600 = await setPngDpi(blob,600);
 
-        const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(png600);
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name + "_" + pads[i].suffix + ".png";
+    const a=document.createElement("a");
 
-        a.click();
+    a.href=url;
 
-        URL.revokeObjectURL(url);
+    a.download=filename+".png";
 
-    });
+    a.click();
+
+    URL.revokeObjectURL(url);
+
+},"image/png");
 
 }
 

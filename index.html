@@ -1,82 +1,86 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>Signature REG TU V3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Signature REG TU</title>
+
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@5.0.10/dist/signature_pad.umd.min.js"></script>
+
 <style>
-:root {
-    --w: 1134px;
-    --h: 284px;
+:root{
+    --w:1134px;
+    --h:284px;
 }
 
-body {
-    margin: 0;
-    padding: 20px;
-    font-family: sans-serif;
-    background: #f5f5f5;
-    text-align: center;
+body{
+    margin:0;
+    padding:20px;
+    font-family:sans-serif;
+    background:#f5f5f5;
+    text-align:center;
 }
 
-input {
-    width: 90%;
-    max-width: 700px;
-    padding: 14px;
-    font-size: 20px;
-    text-align: center;
-    border-radius: 10px;
-    border: 2px solid #999;
-    margin-bottom: 20px;
+input{
+    width:90%;
+    max-width:700px;
+    padding:14px;
+    font-size:20px;
+    text-align:center;
+    border-radius:10px;
+    border:2px solid #999;
+    margin-bottom:20px;
 }
 
-.stack {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
+.stack{
+    display:flex;
+    flex-direction:column;
+    gap:20px;
+    align-items:center;
 }
 
-.card {
-    background: #fff;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 1px 6px rgba(0,0,0,.1);
+.card{
+    background:#fff;
+    padding:15px;
+    border-radius:10px;
+    box-shadow:0 1px 6px rgba(0,0,0,.1);
 }
 
-/* touch-action: none สำคัญมากสำหรับ iPad/Apple Pencil เพื่อไม่ให้หน้าจอเลื่อนเวลาเขียน */
-canvas {
-    border: 1px dashed #ccc;
-    background: #fff;
-    width: 100%;              /* ให้ย่อตามหน้าจอ iPad/มือถืออัตโนมัติ */
-    max-width: 1134px;        /* ไม่เกินสเปกสูงสุด */
-    aspect-ratio: 1134 / 284; /* รักษาสัดส่วน กว้าง:ยาว ให้เป๊ะเสมอ */
-    
-    /* บล็อค Gestures ของ Apple Pencil และการคลุมดำใน Safari */
-    touch-action: none;
+canvas{
+    border:1px solid #ccc;
+    background:#fff;
+    width:var(--w);
+    height:var(--h);
+    touch-action:none;
+    /* ป้องกัน Safari และ iPad รบกวน Apple Pencil */
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
 }
-button {
-    margin: 6px;
-    padding: 8px 14px;
-    border: none;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 16px;
+
+button{
+    margin:6px;
+    padding:8px 14px;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+    cursor:pointer;
 }
 
-.save { background: #198754; color: #fff; }
-.clear { background: #6c757d; color: #fff; }
+.save{background:#198754;color:#fff;}
+.clear{background:#6c757d;color:#fff;}
 
 </style>
 </head>
+
 <body>
 
-<h2>Signature REG TU (V3)</h2>
-<input id="filename" placeholder="ตั้งชื่อไฟล์ (ไม่ต้องใส่สกลุลไฟล์)">
+<h2>Signature REG TU</h2>
+
+<input id="filename" placeholder="ตั้งชื่อไฟล์">
+
 <div class="stack" id="stack"></div>
 
 <script>
@@ -87,31 +91,25 @@ const DPI = 600;
 const pads = [];
 const stack = document.getElementById("stack");
 
-// ---------------------------------
-// 1. Setup Canvas (Retina Display)
-// ---------------------------------
-function setupCanvas(canvas) {
+function setupCanvas(canvas){
     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    
-    // ดึงขนาดความกว้าง/ยาว "จริง" บนหน้าจอที่ถูก CSS ย่อลงมา
-    const displayWidth = canvas.offsetWidth;
-    const displayHeight = canvas.offsetHeight;
-    
-    // ตั้งค่าความละเอียด Canvas ให้คูณด้วย Retina Ratio จากขนาดจริง
-    canvas.width = displayWidth * ratio;
-    canvas.height = displayHeight * ratio;
 
-    // เคลียร์ inline style ออก เพราะเราให้ CSS (aspect-ratio) จัดการความกว้าง/สูงแล้ว
-    canvas.style.width = "";
-    canvas.style.height = "";
+    canvas.width = W * ratio;
+    canvas.height = H * ratio;
+
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
 
     const ctx = canvas.getContext("2d");
+    ctx.setTransform(1,0,0,1,0,0);
     ctx.scale(ratio, ratio);
 }
 
-function createPad(index, label, suffix) {
+function createPad(index,label,suffix){
+
     const div = document.createElement("div");
-    div.className = "card";
+    div.className="card";
+
     div.innerHTML = `
         <div><b>${label}</b></div>
         <canvas id="c${index}"></canvas>
@@ -120,99 +118,40 @@ function createPad(index, label, suffix) {
             <button class="save" onclick="save(${index})">Save</button>
         </div>
     `;
+
     stack.appendChild(div);
 
-    const canvas = document.getElementById("c" + index);
+    const canvas = document.getElementById("c"+index);
     setupCanvas(canvas);
 
-    const pad = new SignaturePad(canvas, {
-        penColor: "#000",
-        backgroundColor: "rgba(255,255,255,0)", // พื้นหลังโปร่งใส
-        minWidth: 1.5,
-        maxWidth: 5,
-        velocityFilterWeight: 0.9,
-        throttle: 0,
-        minDistance: 0.3
-    });
+const pad = new SignaturePad(canvas,{
 
-    pads[index] = { pad, canvas, suffix };
+    penColor:"#000",
+
+    backgroundColor:"rgba(255,255,255,0)",
+
+    minWidth:1.5,
+
+    maxWidth:5,
+
+    velocityFilterWeight:0.9,
+
+    throttle:0,
+
+    minDistance:0.3
+
+});
+
+    pads[index] = {pad, canvas, suffix};
 }
 
-function clearPad(i) {
+function clearPad(i){
     pads[i].pad.clear();
 }
 
-// ---------------------------------
-// 2. Export & Trim (toData)
-// ---------------------------------
-function createExportCanvas(signaturePad) {
-    const data = signaturePad.toData();
-    
-    // สร้าง Canvas สำหรับ Export ขนาดเป๊ะๆ ตามสเปก (ไม่คูณ Retina Ratio เพื่อให้ได้ไฟล์ขนาด 1134x284)
-    const out = document.createElement("canvas");
-    out.width = W;
-    out.height = H;
-
-    if (data.length === 0) return out;
-
-    // หา Bounding Box จาก Stroke Data
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    data.forEach(stroke => {
-        stroke.points.forEach(p => {
-            minX = Math.min(minX, p.x);
-            minY = Math.min(minY, p.y);
-            maxX = Math.max(maxX, p.x);
-            maxY = Math.max(maxY, p.y);
-        });
-    });
-
-    const signWidth = maxX - minX;
-    const signHeight = maxY - minY;
-
-    // กำหนดระยะขอบ (Margin)
-    const margin = 20;
-    const usableWidth = W - (margin * 2);
-    const usableHeight = H - (margin * 2);
-
-    // คำนวณ Scale อัตโนมัติ (ไม่ให้เกิน 1 ถ้าขนาดเล็กกว่าอยู่แล้ว)
-    const scale = Math.min(
-        usableWidth / signWidth,
-        usableHeight / signHeight,
-        1
-    );
-
-    // จัดกึ่งกลาง
-    const offsetX = (W - (signWidth * scale)) / 2;
-    const offsetY = (H - (signHeight * scale)) / 2;
-
-    // Map ข้อมูลจุดใหม่ตาม Scale และ Offset
-    const newData = data.map(stroke => ({
-        ...stroke,
-        points: stroke.points.map(p => ({
-            ...p,
-            x: ((p.x - minX) * scale) + offsetX,
-            y: ((p.y - minY) * scale) + offsetY
-        }))
-    }));
-
-    // วาดข้อมูลใหม่ลงบน Canvas ขาออก
-    const exportPad = new SignaturePad(out, {
-        penColor: "#000",
-        backgroundColor: "rgba(255,255,255,0)",
-        minWidth: signaturePad.minWidth * scale,
-        maxWidth: signaturePad.maxWidth * scale
-    });
-    
-    exportPad.fromData(newData);
-    return out;
-}
 
 // ---------------------------------
-// 3. PNG DPI Injector (ฝังค่า 600 DPI)
+// ฟังก์ชันเขียน Metadata 600 DPI ลง PNG (อัปเดตใหม่)
 // ---------------------------------
 const crcTable = [];
 for (let i = 0; i < 256; i++) {
@@ -240,7 +179,7 @@ function setDPI(blob, dpi) {
             const uint8 = new Uint8Array(buffer);
             const dataView = new DataView(buffer);
 
-            // ตรวจสอบ PNG Signature
+            // เช็คว่าเป็นไฟล์ PNG หรือไม่
             if (uint8[0] !== 0x89 || uint8[1] !== 0x50 || uint8[2] !== 0x4E || uint8[3] !== 0x47) {
                 return resolve(blob);
             }
@@ -255,29 +194,29 @@ function setDPI(blob, dpi) {
                 offset += 12 + length;
             }
 
-            // คำนวณ Pixels Per Meter (PPM) สำหรับ DPI ที่กำหนด (เช่น 600 DPI = ~23622 PPM)
+            // คำนวณ Pixels Per Meter (PPM) สำหรับ DPI ที่ระบุ
             const ppm = Math.round(dpi / 0.0254);
             
-            // สร้าง pHYs Chunk (ขนาด 21 Bytes)
+            // สร้าง pHYs Chunk (บอกความละเอียด DPI)
             const physChunk = new Uint8Array(21);
             const physView = new DataView(physChunk.buffer);
-            physView.setUint32(0, 9); // Length
-            physChunk.set([112, 72, 89, 115], 4); // "pHYs"
-            physView.setUint32(8, ppm); // X-axis
-            physView.setUint32(12, ppm); // Y-axis
-            physChunk[16] = 1; // Unit: Meter
+            physView.setUint32(0, 9); // ความยาวข้อมูล
+            physChunk.set([112, 72, 89, 115], 4); // ชื่อ Chunk "pHYs"
+            physView.setUint32(8, ppm); // X
+            physView.setUint32(12, ppm); // Y
+            physChunk[16] = 1; // หน่วยเป็นเมตร
 
-            // คำนวณ CRC สำหรับ pHYs
+            // คำนวณ CRC 
             const crc = crc32(physChunk.slice(4, 17));
             physView.setUint32(17, crc);
 
-            // ประกอบ Chunks คืน
-            let newChunks = [uint8.slice(0, 8)]; // Header
+            // ประกอบ Chunk คืนเข้าด้วยกัน
+            let newChunks = [uint8.slice(0, 8)];
             for (let i = 0; i < chunks.length; i++) {
-                if (chunks[i].type === 'pHYs') continue; // ข้าม pHYs อันเก่าถ้ามี
+                if (chunks[i].type === 'pHYs') continue; // เอาอันเก่าทิ้งถ้ามี
                 newChunks.push(chunks[i].data);
                 if (chunks[i].type === 'IHDR') {
-                    newChunks.push(physChunk); // แทรก pHYs ทันทีหลัง IHDR
+                    newChunks.push(physChunk); // ยัด pHYs ต่อจาก IHDR
                 }
             }
 
@@ -287,40 +226,128 @@ function setDPI(blob, dpi) {
     });
 }
 
-// ---------------------------------
-// 4. Save Function
-// ---------------------------------
-function save(i) {
+function getStrokeBounds(data){
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    data.forEach(stroke=>{
+        stroke.points.forEach(p=>{
+            if(p.x<minX) minX=p.x;
+            if(p.y<minY) minY=p.y;
+            if(p.x>maxX) maxX=p.x;
+            if(p.y>maxY) maxY=p.y;
+        });
+    });
+
+    if(minX===Infinity) return null;
+
+    return{
+        minX,
+        minY,
+        maxX,
+        maxY
+    };
+}    
+
+function createExportCanvas(signaturePad){
+    const data = signaturePad.toData();
+
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+
+    if(data.length===0){
+        return out;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    data.forEach(stroke=>{
+        stroke.points.forEach(p=>{
+            minX = Math.min(minX,p.x);
+            minY = Math.min(minY,p.y);
+            maxX = Math.max(maxX,p.x);
+            maxY = Math.max(maxY,p.y);
+        });
+    });
+
+    const signWidth = maxX-minX;
+    const signHeight = maxY-minY;
+
+    const margin = 20;
+    const usableWidth = W - margin*2;
+    const usableHeight = H - margin*2;
+
+    const scale = Math.min(
+        usableWidth/signWidth,
+        usableHeight/signHeight,
+        1
+    );
+
+    const offsetX = (W-signWidth*scale)/2;
+    const offsetY = (H-signHeight*scale)/2;
+
+    const newData = data.map(stroke=>({
+        ...stroke,
+        points: stroke.points.map(p=>({
+            ...p,
+            x: (p.x-minX)*scale +offsetX,
+            y: (p.y-minY)*scale +offsetY
+        }))
+    }));
+
+    const exportPad = new SignaturePad(out,{
+        penColor:"#000",
+        backgroundColor:"rgba(255,255,255,0)",
+        minWidth:signaturePad.minWidth*scale,
+        maxWidth:signaturePad.maxWidth*scale
+    });
+
+    exportPad.fromData(newData);
+    return out;
+}
+    
+function save(i){
     const pad = pads[i].pad;
-    if (pad.isEmpty()) {
+    if(pad.isEmpty()){
         alert("กรุณาเซ็นก่อน");
         return;
     }
 
-    // สร้าง Canvas ใหม่ที่คำนวณ Bounding Box + Scale
-    const exportCanvas = createExportCanvas(pad);
+    const exportCanvas = createExportCanvas(pads[i].pad);
 
-    exportCanvas.toBlob(async blob => {
-        // ฝัง Metadata 600 DPI
+    // เซฟเป็น PNG และฝัง 600 DPI (อัปเดตใหม่)
+    exportCanvas.toBlob(async blob=>{
+        
         const finalBlob = await setDPI(blob, DPI);
+        
+        const name = (document.getElementById("filename").value || "signature")
+            .replace(/[\\/:*?"<>|]/g,"");
 
-        const nameInput = document.getElementById("filename").value;
-        const name = (nameInput || "signature").replace(/[\\/:*?"<>|]/g, "");
         const url = URL.createObjectURL(finalBlob);
 
         const a = document.createElement("a");
         a.href = url;
         a.download = name + "_" + pads[i].suffix + ".png";
+
         a.click();
 
         URL.revokeObjectURL(url);
+
     }, "image/png");
+
 }
 
-// สร้าง 2 Pads
-createPad(0, "ลายเซ็นภาษาไทย", "TH");
-createPad(1, "Signature English", "EN");
+// create 2 pads
+createPad(0,"ลายเซ็นภาษาไทย","TH");
+createPad(1,"Signature English","EN");
 
 </script>
+
 </body>
 </html>

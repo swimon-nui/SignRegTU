@@ -120,12 +120,23 @@ function createPad(index,label,suffix){
     const canvas = document.getElementById("c"+index);
     setupCanvas(canvas);
 
-    const pad = new SignaturePad(canvas,{
-        minWidth:1.2,
-        maxWidth:4.5,
-        penColor:"#000",
-        backgroundColor:"rgba(255,255,255,0)"
-    });
+const pad = new SignaturePad(canvas,{
+
+    penColor:"#000",
+
+    backgroundColor:"rgba(255,255,255,0)",
+
+    minWidth:1.5,
+
+    maxWidth:5,
+
+    velocityFilterWeight:0.9,
+
+    throttle:0,
+
+    minDistance:0.3
+
+});
 
     pads[index] = {pad, canvas, suffix};
 }
@@ -135,51 +146,121 @@ function clearPad(i){
 }
 
 function getBounds(canvas){
-    const ctx = canvas.getContext("2d");
-    const img = ctx.getImageData(0,0,canvas.width,canvas.height).data;
 
-    let minX=1e9,minY=1e9,maxX=0,maxY=0;
+    const ratio = window.devicePixelRatio || 1;
+
+    const ctx = canvas.getContext("2d");
+
+    const img = ctx.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const data = img.data;
+
+    let minX = canvas.width;
+    let minY = canvas.height;
+
+    let maxX = 0;
+    let maxY = 0;
+
+    let found = false;
 
     for(let y=0;y<canvas.height;y++){
+
         for(let x=0;x<canvas.width;x++){
-            const a = img[(y*canvas.width+x)*4+3];
-            if(a>0){
-                if(x<minX)minX=x;
-                if(y<minY)minY=y;
-                if(x>maxX)maxX=x;
-                if(y>maxY)maxY=y;
+
+            if(data[(y*canvas.width+x)*4+3]>0){
+
+                found=true;
+
+                if(x<minX) minX=x;
+                if(y<minY) minY=y;
+
+                if(x>maxX) maxX=x;
+                if(y>maxY) maxY=y;
+
             }
+
         }
+
     }
 
-    if(maxX===0) return null;
+    if(!found) return null;
 
-    return {x:minX,y:minY,w:maxX-minX,h:maxY-minY};
+    return{
+
+        x:minX/ratio,
+
+        y:minY/ratio,
+
+        w:(maxX-minX)/ratio,
+
+        h:(maxY-minY)/ratio
+
+    };
+
 }
 
 function makeCentered(canvas){
+
+    const ratio = window.devicePixelRatio || 1;
+
     const out = document.createElement("canvas");
+
     out.width = W;
     out.height = H;
 
     const ctx = out.getContext("2d");
+
     const b = getBounds(canvas);
 
     if(!b) return out;
 
-    const pad = 10;
+    const padding = 18;
 
-    const sx = Math.max(0,b.x-pad);
-    const sy = Math.max(0,b.y-pad);
-    const sw = Math.min(canvas.width, b.w+pad*2);
-    const sh = Math.min(canvas.height, b.h+pad*2);
+    const sx = Math.max(0,b.x-padding);
+    const sy = Math.max(0,b.y-padding);
 
-    const dx = (W - sw)/2;
-    const dy = (H - sh)/2;
+    const sw = Math.min(
+        W,
+        b.w+padding*2
+    );
 
-    ctx.drawImage(canvas,sx,sy,sw,sh,dx,dy,sw,sh);
+    const sh = Math.min(
+        H,
+        b.h+padding*2
+    );
+
+    const dx = (W-sw)/2;
+    const dy = (H-sh)/2;
+
+    ctx.imageSmoothingEnabled = true;
+
+    ctx.imageSmoothingQuality = "high";
+    
+    ctx.drawImage(
+
+        canvas,
+
+        sx*ratio,
+        sy*ratio,
+
+        sw*ratio,
+        sh*ratio,
+
+        dx,
+        dy,
+
+        sw,
+        sh
+
+    );
 
     return out;
+
 }
 
 // --- DPI metadata ---

@@ -189,81 +189,110 @@ function createExportCanvas(signaturePad){
 
     const data = signaturePad.toData();
 
+    const out = document.createElement("canvas");
+    out.width = W;
+    out.height = H;
+
     if(data.length===0){
-
-        const out=document.createElement("canvas");
-
-        out.width=W;
-        out.height=H;
-
         return out;
-
     }
 
-    let minX=Infinity;
-    let minY=Infinity;
-    let maxX=-Infinity;
-    let maxY=-Infinity;
-
+    // ---------------------------------
     // หา Bounding Box
+    // ---------------------------------
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
     data.forEach(stroke=>{
 
         stroke.points.forEach(p=>{
 
-            if(p.x<minX) minX=p.x;
-            if(p.y<minY) minY=p.y;
+            minX = Math.min(minX,p.x);
+            minY = Math.min(minY,p.y);
 
-            if(p.x>maxX) maxX=p.x;
-            if(p.y>maxY) maxY=p.y;
+            maxX = Math.max(maxX,p.x);
+            maxY = Math.max(maxY,p.y);
 
         });
 
     });
 
-    const padding=20;
+    const signWidth = maxX-minX;
+    const signHeight = maxY-minY;
 
-    const signWidth=maxX-minX;
-    const signHeight=maxY-minY;
+    // ---------------------------------
+    // กำหนดระยะขอบ
+    // ---------------------------------
 
-    // ตำแหน่งใหม่ให้อยู่กึ่งกลาง
-    const offsetX=(W-signWidth)/2-minX;
-    const offsetY=(H-signHeight)/2-minY;
+    const margin = 20;
 
+    const usableWidth = W - margin*2;
+    const usableHeight = H - margin*2;
+
+    // ---------------------------------
+    // Scale อัตโนมัติ
+    // ---------------------------------
+
+    const scale = Math.min(
+
+        usableWidth/signWidth,
+
+        usableHeight/signHeight,
+
+        1
+
+    );
+
+    // ---------------------------------
+    // จัดกึ่งกลาง
+    // ---------------------------------
+
+    const offsetX =
+        (W-signWidth*scale)/2;
+
+    const offsetY =
+        (H-signHeight*scale)/2;
+
+    // ---------------------------------
     // สร้างข้อมูลใหม่
-    const newData=data.map(stroke=>{
+    // ---------------------------------
 
-        return{
+    const newData = data.map(stroke=>({
 
-            ...stroke,
+        ...stroke,
 
-            points:stroke.points.map(p=>({
+        points: stroke.points.map(p=>({
 
-                ...p,
+            ...p,
 
-                x:p.x+offsetX,
+            x:
+                (p.x-minX)*scale
+                +offsetX,
 
-                y:p.y+offsetY
+            y:
+                (p.y-minY)*scale
+                +offsetY
 
-            }))
+        }))
 
-        };
+    }));
 
-    });
+    // ---------------------------------
+    // วาดใหม่
+    // ---------------------------------
 
-    const out=document.createElement("canvas");
-
-    out.width=W;
-    out.height=H;
-
-    const exportPad=new SignaturePad(out,{
+    const exportPad = new SignaturePad(out,{
 
         penColor:"#000",
 
         backgroundColor:"rgba(255,255,255,0)",
 
-        minWidth:signaturePad.minWidth,
+        minWidth:signaturePad.minWidth*scale,
 
-        maxWidth:signaturePad.maxWidth
+        maxWidth:signaturePad.maxWidth*scale
 
     });
 

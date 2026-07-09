@@ -2,227 +2,390 @@
 <html lang="th">
 
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>Signature PRO Hybrid V2</title>
+    <title>Signature PRO Hybrid V2</title>
 
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@5.0.10/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@5.0.10/dist/signature_pad.umd.min.js"></script>
 
-<style>
-:root{
-    --w:1134px;
-    --h:284px;
-}
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            text-align: center;
+            color: #333;
+        }
 
-body{
-    margin:0;
-    padding:20px;
-    font-family:sans-serif;
-    background:#f5f5f5;
-    text-align:center;
-}
+        h2 {
+            margin-top: 0;
+            color: #1a1a1a;
+        }
 
-input{
-    width:90%;
-    max-width:700px;
-    padding:14px;
-    font-size:20px;
-    text-align:center;
-    border-radius:10px;
-    border:2px solid #999;
-    margin-bottom:20px;
-}
+        input {
+            width: 100%;
+            max-width: 500px;
+            padding: 14px;
+            font-size: 18px;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid #cbd5e1;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
 
-.stack{
-    display:flex;
-    flex-direction:column;
-    gap:20px;
-    align-items:center;
-}
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
 
-.card{
-    background:#fff;
-    padding:15px;
-    border-radius:10px;
-    box-shadow:0 1px 6px rgba(0,0,0,.1);
-}
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            align-items: center;
+        }
 
-canvas{
-    border:1px solid #ccc;
-    background:#fff;
-    width:var(--w);
-    height:var(--h);
-    touch-action:none;
-}
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 800px;
+            box-sizing: border-box;
+        }
 
-button{
-    margin:6px;
-    padding:8px 14px;
-    border:none;
-    border-radius:6px;
-    font-weight:bold;
-    cursor:pointer;
-}
+        .card b {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            color: #475569;
+        }
 
-.save{background:#198754;color:#fff;}
-.clear{background:#6c757d;color:#fff;}
+        /* ทำให้ Canvas Responsive สัดส่วนจะยึดตาม 1134/284 เสมอ */
+        .canvas-container {
+            width: 100%;
+            /* 1134 / 284 ≈ 3.99 */
+            aspect-ratio: 1134 / 284;
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #fff;
+            position: relative;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
 
-</style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+
+        .save {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .save:hover { background: #1d4ed8; }
+
+        .clear {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .clear:hover { background: #cbd5e1; }
+
+        /* Custom Alert (Toast) */
+        #toast {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: top 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 9999;
+        }
+        #toast.show { top: 20px; }
+        #toast.success { background: #10b981; }
+
+    </style>
 </head>
 
 <body>
 
-<h2>Signature PRO Hybrid V2</h2>
+    <div id="toast">ข้อความแจ้งเตือน</div>
 
-<input id="filename" placeholder="ตั้งชื่อไฟล์">
+    <h2>Signature PRO Hybrid V2</h2>
+    <p style="color:#666; margin-top:-10px; margin-bottom:20px;">ส่งออกไฟล์ขนาด 1134x284 พิกเซล @ 600 DPI</p>
 
-<div class="stack" id="stack"></div>
+    <input id="filename" placeholder="ตั้งชื่อไฟล์ (เช่น doc_01)">
 
-<script>
-const W = 1134;
-const H = 284;
-const DPI = 600;
+    <div class="stack" id="stack"></div>
 
-const pads = [];
-const stack = document.getElementById("stack");
+    <script>
+        const EXPORT_W = 1134;
+        const EXPORT_H = 284;
+        const EXPORT_DPI = 600;
 
-function setupCanvas(canvas){
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const pads = [];
+        const stack = document.getElementById("stack");
 
-    canvas.width = W * ratio;
-    canvas.height = H * ratio;
-
-    canvas.style.width = W + "px";
-    canvas.style.height = H + "px";
-
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.scale(ratio, ratio);
-}
-
-function createPad(index,label,suffix){
-
-    const div = document.createElement("div");
-    div.className="card";
-
-    div.innerHTML = `
-        <div><b>${label}</b></div>
-        <canvas id="c${index}"></canvas>
-        <div>
-            <button class="clear" onclick="clearPad(${index})">Clear</button>
-            <button class="save" onclick="save(${index})">Save</button>
-        </div>
-    `;
-
-    stack.appendChild(div);
-
-    const canvas = document.getElementById("c"+index);
-    setupCanvas(canvas);
-
-    const pad = new SignaturePad(canvas,{
-        minWidth:1.2,
-        maxWidth:4.5,
-        penColor:"#000",
-        backgroundColor:"rgba(255,255,255,0)"
-    });
-
-    pads[index] = {pad, canvas, suffix};
-}
-
-function clearPad(i){
-    pads[i].pad.clear();
-}
-
-function getBounds(canvas){
-    const ctx = canvas.getContext("2d");
-    const img = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-
-    let minX=1e9,minY=1e9,maxX=0,maxY=0;
-
-    for(let y=0;y<canvas.height;y++){
-        for(let x=0;x<canvas.width;x++){
-            const a = img[(y*canvas.width+x)*4+3];
-            if(a>0){
-                if(x<minX)minX=x;
-                if(y<minY)minY=y;
-                if(x>maxX)maxX=x;
-                if(y>maxY)maxY=y;
-            }
+        // ระบบแสดงข้อความแจ้งเตือน (แทน alert)
+        function showMessage(msg, isSuccess = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = isSuccess ? 'success show' : 'show';
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
         }
-    }
 
-    if(maxX===0) return null;
+        // ปรับขนาดความละเอียดจริงของ Canvas ให้เข้ากับขนาดที่แสดงบนหน้าจอ
+        function resizeCanvas(padObj) {
+            const canvas = padObj.canvas;
+            // คำนวณความหนาแน่นพิกเซลของจอ
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            
+            // เก็บข้อมูลเก่าไว้ก่อน
+            const data = padObj.pad.toData();
+            
+            // ปรับขนาด Resolution ภายในให้ตรงกับขนาด CSS (ป้องกันภาพแตก)
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            
+            const ctx = canvas.getContext("2d");
+            ctx.scale(ratio, ratio);
+            
+            // นำข้อมูลกลับมาวาดใหม่
+            padObj.pad.fromData(data);
+        }
 
-    return {x:minX,y:minY,w:maxX-minX,h:maxY-minY};
-}
+        // เมื่อหมุนจอหรือย่อขยายเบราว์เซอร์ ให้ปรับขนาด Canvas ใหม่ทั้งหมด
+        window.addEventListener("resize", () => {
+            pads.forEach(p => resizeCanvas(p));
+        });
 
-function makeCentered(canvas){
-    const out = document.createElement("canvas");
-    out.width = W;
-    out.height = H;
+        function createPad(index, label, suffix) {
+            const div = document.createElement("div");
+            div.className = "card";
 
-    const ctx = out.getContext("2d");
-    const b = getBounds(canvas);
+            div.innerHTML = `
+                <b>${label}</b>
+                <div class="canvas-container">
+                    <canvas id="c${index}"></canvas>
+                </div>
+                <div class="actions">
+                    <button class="clear" onclick="clearPad(${index})">ล้างลายเซ็น</button>
+                    <button class="save" onclick="save(${index})">บันทึกรูปภาพ</button>
+                </div>
+            `;
 
-    if(!b) return out;
+            stack.appendChild(div);
 
-    const pad = 10;
+            const canvas = document.getElementById("c" + index);
+            const pad = new SignaturePad(canvas, {
+                minWidth: 1.2,
+                maxWidth: 4.5,
+                penColor: "#000",
+                backgroundColor: "rgba(255,255,255,0)"
+            });
 
-    const sx = Math.max(0,b.x-pad);
-    const sy = Math.max(0,b.y-pad);
-    const sw = Math.min(canvas.width, b.w+pad*2);
-    const sh = Math.min(canvas.height, b.h+pad*2);
+            const padObj = { pad, canvas, suffix };
+            pads[index] = padObj;
 
-    const dx = (W - sw)/2;
-    const dy = (H - sh)/2;
+            // หน่วงเวลาเล็กน้อยเพื่อให้ CSS Render โครงสร้างเสร็จก่อนอ่านค่า offsetWidth
+            setTimeout(() => resizeCanvas(padObj), 50);
+        }
 
-    ctx.drawImage(canvas,sx,sy,sw,sh,dx,dy,sw,sh);
+        function clearPad(i) {
+            pads[i].pad.clear();
+        }
 
-    return out;
-}
+        // หาขอบเขตที่แท้จริงของลายเซ็น (Crop)
+        function getBounds(canvas) {
+            const ctx = canvas.getContext("2d");
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const img = imgData.data;
 
-// --- DPI metadata ---
-function setDPI(blob,dpi){
-    return blob; // simplified (browser ignores true DPI visually)
-}
+            let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+            let hasPixel = false;
 
-function save(i){
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const a = img[(y * canvas.width + x) * 4 + 3];
+                    if (a > 0) {
+                        hasPixel = true;
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
 
-    const pad = pads[i].pad;
-    if(pad.isEmpty()){
-        alert("กรุณาเซ็นก่อน");
-        return;
-    }
+            if (!hasPixel) return null;
+            return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+        }
 
-    const canvas = pads[i].canvas;
+        // สเกลและจัดกึ่งกลางลายเซ็นลงบน Canvas ขนาด 1134x284 อย่างสมบูรณ์
+        function makeCentered(canvas) {
+            const out = document.createElement("canvas");
+            out.width = EXPORT_W;
+            out.height = EXPORT_H;
+            const ctx = out.getContext("2d");
 
-    const centered = makeCentered(canvas);
+            const b = getBounds(canvas);
+            if (!b) return out;
 
-    centered.toBlob(blob=>{
+            // คำนวณสัดส่วนการขยายจากหน้าจอจริง ไปยังหน้าจอ Export (เพื่อให้เส้นหนาตามจริง)
+            const scale = EXPORT_W / canvas.width;
+            
+            const finalW = b.w * scale;
+            const finalH = b.h * scale;
 
-        const name = (document.getElementById("filename").value || "signature")
-            .replace(/[\\/:*?"<>|]/g,"");
+            // คำนวณจุดกึ่งกลาง
+            const dx = (EXPORT_W - finalW) / 2;
+            const dy = (EXPORT_H - finalH) / 2;
 
-        const url = URL.createObjectURL(blob);
+            // วาดรูปลงไป
+            ctx.drawImage(canvas, b.x, b.y, b.w, b.h, dx, dy, finalW, finalH);
+            return out;
+        }
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name + "_" + pads[i].suffix + ".png";
+        // --- ระบบแปลงข้อมูล Metadata ของ PNG เพื่อฝังค่า DPI ลงไป ---
+        
+        // ตาราง CRC32 สำหรับใช้คำนวณ Checksum ของข้อมูล
+        const crcTable = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let j = 0; j < 8; j++) {
+                if (c & 1) c = 0xEDB88320 ^ (c >>> 1);
+                else c = c >>> 1;
+            }
+            crcTable[i] = c;
+        }
 
-        a.click();
+        function crc32(data) {
+            let crc = 0 ^ (-1);
+            for (let i = 0; i < data.length; i++) {
+                crc = (crc >>> 8) ^ crcTable[(crc ^ data[i]) & 0xFF];
+            }
+            return (crc ^ (-1)) >>> 0;
+        }
 
-        URL.revokeObjectURL(url);
+        // ฟังก์ชันสร้าง Blob ตัวใหม่ที่มีค่า DPI ตามที่ต้องการ
+        function setDPI(blob, dpi) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const arrayBuffer = e.target.result;
+                    const bytes = new Uint8Array(arrayBuffer);
 
-    });
+                    // ตรวจสอบว่าเป็นไฟล์ PNG หรือไม่ (เช็ค Header 8 bytes แรก)
+                    if (bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47) {
+                        return resolve(blob); 
+                    }
 
-}
+                    // คำนวณ Pixel Per Meter (PPM) จากค่า DPI
+                    const ppm = Math.round(dpi / 0.0254);
 
-// create 2 pads
-createPad(0,"ลายเซ็นภาษาไทย","TH");
-createPad(1,"Signature English","EN");
+                    // สร้างข้อมูล pHYs chunk (รวม 21 bytes)
+                    const physChunk = new Uint8Array(21);
+                    const physDataView = new DataView(physChunk.buffer);
+                    
+                    physDataView.setUint32(0, 9); // ความยาวของ Data (9 bytes)
+                    physChunk.set([0x70, 0x48, 0x59, 0x73], 4); // คำว่า 'pHYs'
+                    physDataView.setUint32(8, ppm); // X axis
+                    physDataView.setUint32(12, ppm); // Y axis
+                    physChunk[16] = 1; // ใช้หน่วยเมตร (1)
 
-</script>
+                    // คำนวณ CRC32 สำหรับ Type + Data
+                    const crc = crc32(physChunk.subarray(4, 17));
+                    physDataView.setUint32(17, crc);
 
+                    // IHDR chunk อยู่ช่วง byte ที่ 8 ถึง 33 (ความยาว 25 bytes)
+                    // เราจะแทรก pHYs chunk ไว้ต่อจาก IHDR พอดี (index 33)
+                    const newBytes = new Uint8Array(bytes.length + 21);
+                    newBytes.set(bytes.subarray(0, 33), 0); // ใส่ตั้งแต่ต้นจนจบ IHDR
+                    newBytes.set(physChunk, 33);            // แทรก pHYs ลงไป
+                    newBytes.set(bytes.subarray(33), 33 + 21); // ใส่ข้อมูลที่เหลือตามไป
+
+                    resolve(new Blob([newBytes], { type: 'image/png' }));
+                };
+                reader.readAsArrayBuffer(blob);
+            });
+        }
+
+        // --- จบระบบ DPI ---
+
+        function save(i) {
+            const pad = pads[i].pad;
+            if (pad.isEmpty()) {
+                showMessage("กรุณาเซ็นชื่อก่อนบันทึกรูปภาพ");
+                return;
+            }
+
+            // จัดกึ่งกลางและย่อขยายให้อยู่ในกรอบ 1134x284
+            const canvas = pads[i].canvas;
+            const centeredCanvas = makeCentered(canvas);
+
+            centeredCanvas.toBlob(async (blob) => {
+                
+                // ฝังข้อมูล 600 DPI ลงในไฟล์ PNG
+                const finalBlob = await setDPI(blob, EXPORT_DPI);
+
+                const name = (document.getElementById("filename").value || "signature")
+                    .replace(/[\\/:*?"<>|]/g, "");
+
+                const url = URL.createObjectURL(finalBlob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = name + "_" + pads[i].suffix + ".png";
+
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                showMessage(`ดาวน์โหลดลายเซ็น (${EXPORT_W}x${EXPORT_H} px | ${EXPORT_DPI} DPI) สำเร็จ`, true);
+
+            }, "image/png");
+        }
+
+        // สร้างพื้นที่ลายเซ็น 2 ช่อง
+        createPad(0, "ลายเซ็นภาษาไทย", "TH");
+        createPad(1, "Signature English", "EN");
+
+    </script>
 </body>
+
 </html>

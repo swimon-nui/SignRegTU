@@ -5,7 +5,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>Signature REG TU</title>
+<title>Signature PRO Hybrid V2</title>
 
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@5.0.10/dist/signature_pad.umd.min.js"></script>
 
@@ -54,10 +54,6 @@ canvas{
     width:var(--w);
     height:var(--h);
     touch-action:none;
-    /* ป้องกัน Safari และ iPad รบกวน Apple Pencil */
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
 }
 
 button{
@@ -77,7 +73,7 @@ button{
 
 <body>
 
-<h2>Signature REG TU</h2>
+<h2>Signature PRO Hybrid V2</h2>
 
 <input id="filename" placeholder="ตั้งชื่อไฟล์">
 
@@ -124,23 +120,12 @@ function createPad(index,label,suffix){
     const canvas = document.getElementById("c"+index);
     setupCanvas(canvas);
 
-const pad = new SignaturePad(canvas,{
-
-    penColor:"#000",
-
-    backgroundColor:"rgba(255,255,255,0)",
-
-    minWidth:1.5,
-
-    maxWidth:5,
-
-    velocityFilterWeight:0.9,
-
-    throttle:0,
-
-    minDistance:0.3
-
-});
+    const pad = new SignaturePad(canvas,{
+        minWidth:1.2,
+        maxWidth:4.5,
+        penColor:"#000",
+        backgroundColor:"rgba(255,255,255,0)"
+    });
 
     pads[index] = {pad, canvas, suffix};
 }
@@ -149,187 +134,77 @@ function clearPad(i){
     pads[i].pad.clear();
 }
 
+function getBounds(canvas){
+    const ctx = canvas.getContext("2d");
+    const img = ctx.getImageData(0,0,canvas.width,canvas.height).data;
 
-// ---------------------------------
-// ฟังก์ชันเขียน Metadata 600 DPI ลง PNG (อัปเดตใหม่)
-// ---------------------------------
-const crcTable = [];
-for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) {
-        if (c & 1) c = 0xedb88320 ^ (c >>> 1);
-        else c = c >>> 1;
+    let minX=1e9,minY=1e9,maxX=0,maxY=0;
+
+    for(let y=0;y<canvas.height;y++){
+        for(let x=0;x<canvas.width;x++){
+            const a = img[(y*canvas.width+x)*4+3];
+            if(a>0){
+                if(x<minX)minX=x;
+                if(y<minY)minY=y;
+                if(x>maxX)maxX=x;
+                if(y>maxY)maxY=y;
+            }
+        }
     }
-    crcTable[i] = c;
+
+    if(maxX===0) return null;
+
+    return {x:minX,y:minY,w:maxX-minX,h:maxY-minY};
 }
 
-function crc32(buf) {
-    let c = 0xffffffff;
-    for (let i = 0; i < buf.length; i++) {
-        c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-    }
-    return c ^ 0xffffffff;
-}
-
-function setDPI(blob, dpi) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const buffer = e.target.result;
-            const uint8 = new Uint8Array(buffer);
-            const dataView = new DataView(buffer);
-
-            // เช็คว่าเป็นไฟล์ PNG หรือไม่
-            if (uint8[0] !== 0x89 || uint8[1] !== 0x50 || uint8[2] !== 0x4E || uint8[3] !== 0x47) {
-                return resolve(blob);
-            }
-
-            const chunks = [];
-            let offset = 8;
-            while (offset < uint8.length) {
-                const length = dataView.getUint32(offset);
-                const type = String.fromCharCode(uint8[offset+4], uint8[offset+5], uint8[offset+6], uint8[offset+7]);
-                const chunk = uint8.slice(offset, offset + 12 + length);
-                chunks.push({ type, data: chunk });
-                offset += 12 + length;
-            }
-
-            // คำนวณ Pixels Per Meter (PPM) สำหรับ DPI ที่ระบุ
-            const ppm = Math.round(dpi / 0.0254);
-            
-            // สร้าง pHYs Chunk (บอกความละเอียด DPI)
-            const physChunk = new Uint8Array(21);
-            const physView = new DataView(physChunk.buffer);
-            physView.setUint32(0, 9); // ความยาวข้อมูล
-            physChunk.set([112, 72, 89, 115], 4); // ชื่อ Chunk "pHYs"
-            physView.setUint32(8, ppm); // X
-            physView.setUint32(12, ppm); // Y
-            physChunk[16] = 1; // หน่วยเป็นเมตร
-
-            // คำนวณ CRC 
-            const crc = crc32(physChunk.slice(4, 17));
-            physView.setUint32(17, crc);
-
-            // ประกอบ Chunk คืนเข้าด้วยกัน
-            let newChunks = [uint8.slice(0, 8)];
-            for (let i = 0; i < chunks.length; i++) {
-                if (chunks[i].type === 'pHYs') continue; // เอาอันเก่าทิ้งถ้ามี
-                newChunks.push(chunks[i].data);
-                if (chunks[i].type === 'IHDR') {
-                    newChunks.push(physChunk); // ยัด pHYs ต่อจาก IHDR
-                }
-            }
-
-            resolve(new Blob(newChunks, { type: 'image/png' }));
-        };
-        reader.readAsArrayBuffer(blob);
-    });
-}
-
-function getStrokeBounds(data){
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    data.forEach(stroke=>{
-        stroke.points.forEach(p=>{
-            if(p.x<minX) minX=p.x;
-            if(p.y<minY) minY=p.y;
-            if(p.x>maxX) maxX=p.x;
-            if(p.y>maxY) maxY=p.y;
-        });
-    });
-
-    if(minX===Infinity) return null;
-
-    return{
-        minX,
-        minY,
-        maxX,
-        maxY
-    };
-}    
-
-function createExportCanvas(signaturePad){
-    const data = signaturePad.toData();
-
+function makeCentered(canvas){
     const out = document.createElement("canvas");
     out.width = W;
     out.height = H;
 
-    if(data.length===0){
-        return out;
-    }
+    const ctx = out.getContext("2d");
+    const b = getBounds(canvas);
 
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
+    if(!b) return out;
 
-    data.forEach(stroke=>{
-        stroke.points.forEach(p=>{
-            minX = Math.min(minX,p.x);
-            minY = Math.min(minY,p.y);
-            maxX = Math.max(maxX,p.x);
-            maxY = Math.max(maxY,p.y);
-        });
-    });
+    const pad = 10;
 
-    const signWidth = maxX-minX;
-    const signHeight = maxY-minY;
+    const sx = Math.max(0,b.x-pad);
+    const sy = Math.max(0,b.y-pad);
+    const sw = Math.min(canvas.width, b.w+pad*2);
+    const sh = Math.min(canvas.height, b.h+pad*2);
 
-    const margin = 20;
-    const usableWidth = W - margin*2;
-    const usableHeight = H - margin*2;
+    const dx = (W - sw)/2;
+    const dy = (H - sh)/2;
 
-    const scale = Math.min(
-        usableWidth/signWidth,
-        usableHeight/signHeight,
-        1
-    );
+    ctx.drawImage(canvas,sx,sy,sw,sh,dx,dy,sw,sh);
 
-    const offsetX = (W-signWidth*scale)/2;
-    const offsetY = (H-signHeight*scale)/2;
-
-    const newData = data.map(stroke=>({
-        ...stroke,
-        points: stroke.points.map(p=>({
-            ...p,
-            x: (p.x-minX)*scale +offsetX,
-            y: (p.y-minY)*scale +offsetY
-        }))
-    }));
-
-    const exportPad = new SignaturePad(out,{
-        penColor:"#000",
-        backgroundColor:"rgba(255,255,255,0)",
-        minWidth:signaturePad.minWidth*scale,
-        maxWidth:signaturePad.maxWidth*scale
-    });
-
-    exportPad.fromData(newData);
     return out;
 }
-    
+
+// --- DPI metadata ---
+function setDPI(blob,dpi){
+    return blob; // simplified (browser ignores true DPI visually)
+}
+
 function save(i){
+
     const pad = pads[i].pad;
     if(pad.isEmpty()){
         alert("กรุณาเซ็นก่อน");
         return;
     }
 
-    const exportCanvas = createExportCanvas(pads[i].pad);
+    const canvas = pads[i].canvas;
 
-    // เซฟเป็น PNG และฝัง 600 DPI (อัปเดตใหม่)
-    exportCanvas.toBlob(async blob=>{
-        
-        const finalBlob = await setDPI(blob, DPI);
-        
+    const centered = makeCentered(canvas);
+
+    centered.toBlob(blob=>{
+
         const name = (document.getElementById("filename").value || "signature")
             .replace(/[\\/:*?"<>|]/g,"");
 
-        const url = URL.createObjectURL(finalBlob);
+        const url = URL.createObjectURL(blob);
 
         const a = document.createElement("a");
         a.href = url;
@@ -339,7 +214,7 @@ function save(i){
 
         URL.revokeObjectURL(url);
 
-    }, "image/png");
+    });
 
 }
 
